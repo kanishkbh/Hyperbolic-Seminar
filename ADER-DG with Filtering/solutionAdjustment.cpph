@@ -1,0 +1,140 @@
+/**
+ * This file is part of the ExaHyPE project.
+ * Copyright (c) 2016  http://exahype.eu
+ * All rights reserved.
+ *
+ * The project has received funding from the European Union's Horizon 
+ * 2020 research and innovation programme under grant agreement
+ * No 671698. For copyrights and licensing, please consult the webpage.
+ *
+ * Released under the BSD 3 Open Source License.
+ * For the full license text, see LICENSE.txt
+ **/
+
+#include <vector>
+#include <iostream>
+
+template <typename SolverType>
+void kernels::aderdg::generic::c::solutionAdjustment(
+    SolverType& solver,
+    double* luh, const tarch::la::Vector<DIMENSIONS, double>& center,
+    const tarch::la::Vector<DIMENSIONS, double>& dx, const double t,
+    const double dt) {
+  constexpr int numberOfVariables  = SolverType::NumberOfVariables;
+  constexpr int numberOfParameters = SolverType::NumberOfParameters;
+  constexpr int numberOfData       = numberOfVariables+numberOfParameters;
+  constexpr int order              = SolverType::Order;
+  constexpr int basisSize          = order+1;
+
+  idx3 idx_luh(basisSize, basisSize, numberOfData);
+  
+  double x[2];
+  for (int i = 0; i < basisSize; i++) {  // loop over dof (Major)
+    //#if defined(_GLL)
+    //const double qi = kernels::gaussLobattoNodes[order][basisSize-1-i];
+    //#else	    
+    //const double qi = kernels::gaussLegendreNodes[order][i];
+    //#endif    
+    const double qi = SolverType::nodes[order][i];
+
+    for (int j = 0; j < basisSize; j++) { // (Minor)
+      //#if defined(_GLL)
+      //const double qj = kernels::gaussLobattoNodes[order][basisSize-1-j];
+      //#else	    
+      //const double qj = kernels::gaussLegendreNodes[order][j];
+      //#endif      
+      const double qj = SolverType::nodes[order][j];
+      
+      x[0] = center[0] + dx[0] * (qj - 0.5);
+      x[1] = center[1] + dx[1] * (qi - 0.5);
+      
+      solver.adjustPointSolution(x, t, dt, luh + idx_luh(i,j,0));
+    }
+  }
+
+  // // FILTER MATRIX (= V*F*inV) s=16
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //   {0.869539913600702,  0.303782989566511,   -0.269002185195737,  0.095679282028525},
+  //   {0.162038135226695,  0.603793209017313,   0.377654676889772,   -0.143486021133780},
+  //   {-0.143486021133781, 0.377654676889773,   0.603793209017312,   0.162038135226695},
+  //   {0.095679282028525,  -0.269002185195736,  0.303782989566510,   0.869539913600702}
+  // };
+
+  // FILTER MATRIX s=14
+  std::vector<std::vector<double>> FilterMatrix
+  {
+    { 0.849097736388782,   0.324220661990541,  -0.248560680619695,   0.075242282240372},
+    { 0.172939609113332,   0.592889956617255,   0.366752937443032,  -0.132582503173619},
+    {-0.132582503173620,   0.366752937443033,   0.592889956617254,   0.172939609113333},
+    { 0.075242282240371,  -0.248560680619694,   0.324220661990540,   0.849097736388783}
+  };
+
+  // // FILTER MATRIX s=10
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //  {0.735279386541996 ,  0.437633704321025 , -0.134802849577189 , -0.038110241285833},
+  //  {0.233434233634086 ,  0.532235314605066 ,  0.306234419787175 , -0.071903968026327},
+  //  {-0.071903968026327,   0.306234419787176,   0.532235314605066,   0.233434233634086},
+  //  {-0.038110241285833,  -0.134802849577188,   0.437633704321025,   0.735279386541997}
+  // };
+
+  // // FILTER MATRIX s=8
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //   {0.638775161410521,   0.530863917543522,  -0.038787486058101,  -0.130851592895942},
+  //   {0.283163317935078,   0.481213633568183,   0.256312330407997,  -0.020689281911257},
+  //  {-0.020689281911258,   0.256312330407997,   0.481213633568182,   0.283163317935078},
+  //  {-0.130851592895942,  -0.038787486058100,   0.530863917543521,   0.638775161410521}
+  // };
+
+  // // FILTER MATRIX s=6
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //  {0.556041540423608,   0.584839036116035,   0.039652036968573,  -0.180532613508216},
+  //  {0.311953697457678,   0.441069249422684,   0.225826618931417,   0.021150434188222},
+  //  {0.021150434188221,   0.225826618931418,   0.441069249422683,   0.311953697457678},
+  //  {-0.180532613508216,   0.039652036968574,   0.584839036116034,   0.556041540423608}
+  // };
+
+  // // FILTER MATRIX s=2
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //  {0.181014341129164,   0.331318008334308 ,  0.320827073138969,   0.166840577397558},
+  //  {0.176725340395532,   0.328143534582790 ,  0.324001659425662,   0.171129465596017},
+  //  {0.171129465596016,   0.324001659425662 ,  0.328143534582790,   0.176725340395532},
+  //  {0.166840577397558,   0.320827073138970 ,  0.331318008334307,  0.181014341129165}
+  // };
+
+  //   // FILTER MATRIX first-order
+  // std::vector<std::vector<double>> FilterMatrix
+  // {
+  //   {0.1739 ,   0.3261  ,  0.3261  ,  0.1739},
+  //   {0.1739 ,   0.3261  ,  0.3261  ,  0.1739},
+  //   {0.1739 ,   0.3261  ,  0.3261  ,  0.1739},
+  //   {0.1739 ,   0.3261  ,  0.3261  ,  0.1739}
+  // };
+
+  
+  // APPLY FILTER TO luh (COLUMN-WISE)
+
+  for (int col = 0; col < basisSize; col++) {
+    
+    // Apply filter to `col` column of luh
+    std::vector<double> product(basisSize, 0);
+    for (int i = 0; i < basisSize; i++) {
+      for (int j = 0; j < basisSize; j++) {
+        double* luh_j_col = luh + idx_luh(col,j,0);
+        product.at(i) += FilterMatrix.at(i).at(j) * luh_j_col[0];
+      }
+    }
+
+    // Copy the filtered result (product) to `col` column of luh
+    for (int j = 0; j < basisSize; j++) {
+      double* luh_j_col = luh + idx_luh(col,j,0);
+      luh_j_col[0] = product.at(j);
+    }
+
+  }
+
+}

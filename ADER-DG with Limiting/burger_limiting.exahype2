@@ -1,0 +1,76 @@
+{
+  "project_name": "Burger_limiting",
+  "paths": {
+    "peano_kernel_path": "./Peano",
+    "exahype_path": "./ExaHyPE",
+    "output_directory": "./Burger_limiting",
+    "log_file": "mylogfile.log"
+  },
+  "architecture": "noarch",
+  "computational_domain": {
+    "dimension": 2,
+    "end_time": 1.0,
+    "offset": [
+      0.0,
+      0.0
+    ],
+    "width": [
+      1.0,
+      0.1
+    ]
+  },
+  
+  "solvers": [
+    {
+      "type": "Limiting-ADER-DG",
+      "name": "MySolver",
+      "order": 3,
+      "maximum_mesh_size": 0.05,
+      "time_stepping": "globalfixed",
+      "aderdg_kernel": {
+        "language": "C",
+        "nonlinear": true,
+        "terms": [
+          "flux"
+        ],
+        "space_time_predictor": {},
+        "optimised_terms": [],
+        "optimised_kernel_debugging": [],
+        "implementation": "generic"
+      },
+      "limiter": {
+        "dmp_observables": 1,
+        "dmp_relaxation_parameter": 0.0001,
+        "dmp_difference_scaling": 0.01,
+        "helper_layers": 1
+      },
+      "fv_kernel": {
+        "language": "C",
+        "slope_limiter": "mclim",
+        "scheme": "musclhancock",
+        "terms": [
+            "flux"
+        ],
+        "implementation": "generic"
+      },
+      "point_sources": 0,
+      "variables": [
+        {
+          "name": "v",
+          "multiplicity": 1
+        }
+      ],
+      "plotters": [
+        {
+          "type": "vtk::Cartesian::cells::limited::ascii",
+          "name": "VtkWriter",
+          "time": 0.0,
+          "repeat": 0.02,
+          "output": "burger_limiting",
+          "variables": 1
+        } 
+      
+      ]
+    }
+  ]
+}
